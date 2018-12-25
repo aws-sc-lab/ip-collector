@@ -12,7 +12,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.net.InetAddress;
 
 
 public class IpCollectorHandler implements RequestStreamHandler {
@@ -24,32 +23,35 @@ public class IpCollectorHandler implements RequestStreamHandler {
     JSONParser parser = new JSONParser();
     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
     String sourceIp = "none";
+    String serverIp = "none";
     try {
-      JSONObject event = (JSONObject) parser.parse(reader);
+      JSONObject req = (JSONObject) parser.parse(reader);
+      System.out.println(req.toJSONString());
 
-      if (event.containsKey("requestContext")) {
-        final JSONObject requestContext = (JSONObject) event.get("requestContext");
-
-        if (requestContext.containsKey("identity")) {
-          final JSONObject identity = (JSONObject) requestContext.get("identity");
-          sourceIp = (String) identity.get("sourceIp");
+      if (req.containsKey("headers")) {
+        final JSONObject headers = (JSONObject) req.get("headers");
+        System.out.println(headers.toJSONString());
+        if (headers.containsKey("X-Forwarded-For")) {
+          final String xForwardedFor = (String) headers.get("X-Forwarded-For");
+          System.out.println(req.toJSONString());
+          String[] ips = xForwardedFor.split(",");
+          sourceIp = ips[0].trim();
+          if (ips.length > 1) {
+            serverIp = ips[1].trim();
+          }
         }
       }
-      System.out.println(event.toJSONString());
-
+      System.out.println(req.toJSONString());
     } catch (ParseException e) {
       e.printStackTrace();
     }
-
-    InetAddress inetAddress = InetAddress.getLocalHost();
-    System.out.println("IP Address: "+inetAddress.getHostAddress());
 
 
     JSONObject responseJson = new JSONObject();
 
     JSONObject responseBody = new JSONObject();
     responseBody.put("sourceIp", sourceIp);
-    responseBody.put("serverIp", inetAddress.getHostAddress());
+    responseBody.put("serverIp", serverIp);
 
     JSONObject headerJson = new JSONObject();
     headerJson.put("x-custom-header", "my custom header value");
